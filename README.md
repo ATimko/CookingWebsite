@@ -1,2 +1,2 @@
-# atimko.github.io-CookingWebsite
+# CookingWebsite
 A personal cooking website
