@@ -4,9 +4,9 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import ScrollToTopOnRouteChange from '@hocs/withScrollTopOnRouteChange';
 import withLazyLoadably from '@hocs/withLazyLoadably';
 
-import MinimalLayout from '@/components/layouts/minimalLayout';
 import MainLayout from '@/components/layouts/mainLayout';
 
+const RecipeHome = withLazyLoadably(lazy(() => import('@/pages/recipes')));
 const SamplePage = withLazyLoadably(lazy(() => import('@/pages/sample')));
 
 function Router() {
@@ -14,9 +14,9 @@ function Router() {
 		<BrowserRouter>
 			<ScrollToTopOnRouteChange>
 				<Routes>
-					<Route path="/" element={<MainLayout />}>
+					<Route path="/" element={<RecipeHome />} />
+					<Route path="/samplePage" element={<MainLayout />}>
 						<Route index element={<SamplePage />} />
-						<Route path="samplePage" element={<SamplePage />} />
 					</Route>
 				</Routes>
 			</ScrollToTopOnRouteChange>
