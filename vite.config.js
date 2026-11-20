@@ -5,6 +5,7 @@ import { recipeParserPlugin } from './scripts/recipe-parser-server.js';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+	base: '/CookingWebsite/',
 	plugins: [react(), recipeParserPlugin()],
 	resolve: {
 		alias: [

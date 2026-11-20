@@ -11,7 +11,7 @@ const SamplePage = withLazyLoadably(lazy(() => import('@/pages/sample')));
 
 function Router() {
 	return (
-		<BrowserRouter>
+		<BrowserRouter basename="/CookingWebsite">
 			<ScrollToTopOnRouteChange>
 				<Routes>
 					<Route path="/" element={<RecipeHome />} />
