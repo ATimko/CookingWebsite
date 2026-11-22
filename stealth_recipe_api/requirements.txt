@@ -1,0 +1,3 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+stealth-requests[parsers]>=2.0.6,<3

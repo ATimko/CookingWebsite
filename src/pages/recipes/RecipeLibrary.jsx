@@ -423,7 +423,7 @@ export default function RecipeLibrary({ recipes, onSave, onDelete, onImport, onV
 		setHasAttemptedSubmit(false);
 	};
 
-	const parseUrl = async () => {
+	const parseUrl = async (urlToParse = recipeUrl) => {
 		if (!permissionConfirmed) {
 			setMessage({ type: 'error', text: 'Confirm that you own or have permission to reuse this recipe before importing it.' });
 			return;
@@ -431,13 +431,17 @@ export default function RecipeLibrary({ recipes, onSave, onDelete, onImport, onV
 		setIsParsing(true);
 		setMessage(null);
 		try {
-			const response = await fetch('/api/recipes/parse', {
+			const configuredParser = import.meta.env.VITE_RECIPE_IMPORT_API_URL?.trim();
+			const parserEndpoint = configuredParser
+				? new URL('/api/recipes/parse', configuredParser).toString()
+				: '/api/recipes/parse';
+			const response = await fetch(parserEndpoint, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ url: recipeUrl.trim(), permissionConfirmed }),
+				body: JSON.stringify({ url: urlToParse.trim(), permissionConfirmed }),
 			});
 			if (!response.headers.get('content-type')?.includes('application/json')) {
-				throw new Error('URL import needs the local recipe parser. Run the app with npm run dev or npm run preview.');
+				throw new Error(configuredParser ? 'The Stealth-Requests API did not return JSON. Check the API URL and service logs.' : 'This deployed site has no recipe import API configured. Set the VITE_RECIPE_IMPORT_API_URL GitHub Actions variable to your hosted Stealth-Requests API URL.');
 			}
 			const result = await response.json();
 			if (!response.ok) throw new Error(result.error || `Recipe import failed (${response.status}).`);
@@ -447,7 +451,7 @@ export default function RecipeLibrary({ recipes, onSave, onDelete, onImport, onV
 				category: 'My recipes',
 				ingredients: result.recipe.ingredients.map(parseIngredientLine),
 				instructions: result.recipe.steps.map(createInstructionDraft),
-				sourceUrl: result.recipe.sourceUrl || recipeUrl.trim(),
+				sourceUrl: result.recipe.sourceUrl || urlToParse.trim(),
 			});
 			setEditingId('');
 			setHasAttemptedSubmit(false);
@@ -456,7 +460,7 @@ export default function RecipeLibrary({ recipes, onSave, onDelete, onImport, onV
 			setMessage({
 				type: 'error',
 				text: error instanceof TypeError
-					? 'The local recipe parser is unavailable. Restart the Vite development server and try again.'
+					? (import.meta.env.VITE_RECIPE_IMPORT_API_URL ? 'The Stealth-Requests API could not be reached. Check that the service is running and allows this site in ALLOWED_ORIGINS.' : 'The local recipe parser is unavailable. Restart the Vite development server, or configure VITE_RECIPE_IMPORT_API_URL for the deployed site.')
 					: error.message,
 			});
 		} finally {
@@ -544,11 +548,17 @@ export default function RecipeLibrary({ recipes, onSave, onDelete, onImport, onV
 					<div className="url-import-card">
 						<div className="library-card-heading"><span className="library-icon"><Globe2 size={17} /></span><div><h2>Fill from a recipe URL</h2><p>We’ll look for recipe details embedded on that page.</p></div></div>
 						<div className="url-import-controls">
-							<label className="library-field"><span>Recipe page URL</span><input autoComplete="url" onChange={(event) => setRecipeUrl(event.target.value)} placeholder="https://example.com/my-recipe" type="url" value={recipeUrl} /></label>
+							<label className="library-field"><span>Recipe page URL</span><input autoComplete="url" onChange={(event) => setRecipeUrl(event.target.value)} onPaste={(event) => {
+								const pastedUrl = event.clipboardData.getData('text').trim();
+								if (permissionConfirmed && /^https?:\/\//i.test(pastedUrl)) {
+									setRecipeUrl(pastedUrl);
+									window.setTimeout(() => parseUrl(pastedUrl), 0);
+								}
+							}} placeholder="https://example.com/my-recipe" type="url" value={recipeUrl} /></label>
 							<label className="permission-check"><input checked={permissionConfirmed} onChange={(event) => setPermissionConfirmed(event.target.checked)} type="checkbox" /><span>I own this recipe or have permission to reuse its ingredients, instructions, and any included image.</span></label>
 							<button className="button-primary" disabled={isParsing || !recipeUrl.trim()} onClick={parseUrl} type="button">{isParsing ? 'Reading recipe…' : 'Parse this page'} <ExternalLink size={14} /></button>
 						</div>
-						<p className="library-hint">Only the recipe’s structured data is read. Pages without Schema.org recipe details can’t be auto-filled.</p>
+						<p className="library-hint">Confirm permission first, then paste a recipe URL to import it automatically, or click Parse this page. Ingredients and steps are placed in the Add a recipe form for review before saving. Pages need Schema.org recipe data. On GitHub Pages, configure VITE_RECIPE_IMPORT_API_URL to point to your hosted Stealth-Requests API.</p>
 					</div>
 
 					<form

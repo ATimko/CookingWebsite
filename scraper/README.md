@@ -109,6 +109,10 @@ response size and request rate. A static production host must also provide an
 equivalent `/api/recipes/image` route. Pages without complete structured recipe
 data must be entered manually.
 
+## Import recipes from a URL with Stealth-Requests
+
+The **My recipes** URL importer can use [Stealth-Requests](https://github.com/jpjacobpadilla/Stealth-Requests) to fetch recipe pages with browser-like HTTP requests, then extract Schema.org `Recipe` JSON-LD into the recipe editor. Ingredients and instructions are populated in **Add a recipe** so you can review and edit them before saving. The importer does not bypass logins, paywalls, robots restrictions, or other access controls; only import recipes you own or have permission to reuse.
+
 ## Test
 
 ```powershell

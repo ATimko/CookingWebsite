@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: grassy-stealth-recipe-api
+    runtime: python
+    plan: free
+    rootDir: stealth_recipe_api
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: ALLOWED_ORIGINS
+        value: https://atimko.github.io
