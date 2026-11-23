@@ -424,6 +424,10 @@ export default function RecipeLibrary({ recipes, onSave, onDelete, onImport, onV
 	};
 
 	const parseUrl = async (urlToParse = recipeUrl) => {
+		const recipePageUrl = typeof urlToParse === 'string'
+			? urlToParse
+			: recipeUrl;
+
 		if (!permissionConfirmed) {
 			setMessage({
 				type: 'error',
@@ -454,7 +458,7 @@ export default function RecipeLibrary({ recipes, onSave, onDelete, onImport, onV
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					url: urlToParse.trim(),
+					url: recipePageUrl.trim(),
 					permissionConfirmed
 				}),
 			});
@@ -483,7 +487,7 @@ export default function RecipeLibrary({ recipes, onSave, onDelete, onImport, onV
 				category: 'My recipes',
 				ingredients: result.recipe.ingredients.map(parseIngredientLine),
 				instructions: result.recipe.steps.map(createInstructionDraft),
-				sourceUrl: result.recipe.sourceUrl || urlToParse.trim(),
+				sourceUrl: result.recipe.sourceUrl || recipePageUrl.trim(),
 			});
 
 			setEditingId('');
@@ -601,9 +605,9 @@ export default function RecipeLibrary({ recipes, onSave, onDelete, onImport, onV
 								}
 							}} placeholder="https://example.com/my-recipe" type="url" value={recipeUrl} /></label>
 							<label className="permission-check"><input checked={permissionConfirmed} onChange={(event) => setPermissionConfirmed(event.target.checked)} type="checkbox" /><span>I own this recipe or have permission to reuse its ingredients, instructions, and any included image.</span></label>
-							<button className="button-primary" disabled={isParsing || !recipeUrl.trim()} onClick={parseUrl} type="button">{isParsing ? 'Reading recipe…' : 'Parse this page'} <ExternalLink size={14} /></button>
+							<button className="button-primary" disabled={isParsing || !recipeUrl.trim()} onClick={() => parseUrl()} type="button">{isParsing ? 'Reading recipe…' : 'Parse this page'} <ExternalLink size={14} /></button>
 						</div>
-						<p className="library-hint">Confirm permission first, then paste a recipe URL to import it automatically, or click Parse this page. Ingredients and steps are placed in the Add a recipe form for review before saving. Pages need Schema.org recipe data. On GitHub Pages, configure VITE_RECIPE_IMPORT_API_URL to point to your hosted Stealth-Requests API.</p>
+						<p className="library-hint">Confirm permission first, then paste a recipe URL to import it automatically, or click "Parse this page". Ingredients and steps are placed in the "Add a recipe form" for review before saving.</p>
 					</div>
 
 					<form
