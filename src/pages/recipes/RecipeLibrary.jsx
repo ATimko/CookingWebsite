@@ -478,7 +478,11 @@ export default function RecipeLibrary({ recipes, onSave, onDelete, onImport, onV
 			console.log('Recipe API response:', result);
 
 			if (!response.ok) {
-				throw new Error(result.error || `Recipe import failed (${response.status}).`);
+				throw new Error(
+					result.error ||
+					result.detail ||
+					`Recipe import failed (${response.status}).`
+				);
 			}
 
 			setDraft({
