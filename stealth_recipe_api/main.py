@@ -47,7 +47,7 @@ def _public_host(url: str) -> None:
 
 def _fetch_html(value: str) -> tuple[str, str]:
     current = value
-    with StealthSession(impersonate="chrome") as session:
+    with StealthSession() as session:
         for redirect_count in range(MAX_REDIRECTS + 1):
             _public_host(current)
             response = session.get(
