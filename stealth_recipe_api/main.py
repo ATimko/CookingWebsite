@@ -4,6 +4,7 @@ from __future__ import annotations
 import html
 import ipaddress
 import json
+import logging
 import os
 import socket
 from datetime import datetime
@@ -211,10 +212,15 @@ def import_recipe(payload: ParseRequest) -> dict[str, Any]:
     if not payload.permissionConfirmed:
         raise HTTPException(status_code=400, detail="Confirm that you own or have permission to reuse this recipe.")
     try:
+        logging.info("Starting recipe import for host: %s", urlparse(str(payload.url)).hostname)
         page, final_url = _fetch_html(str(payload.url))
-        return {"recipe": parse_recipe(page, final_url)}
+        logging.info("Fetched recipe page successfully; parsing structured recipe data.")
+        recipe = parse_recipe(page, final_url)
+        logging.info("Recipe import succeeded.")
+        return {"recipe": recipe}
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
-        # Avoid returning request internals, headers, or stack traces to the browser.
-        raise HTTPException(status_code=502, detail="The recipe page could not be imported. Try again or enter it manually.") from exc
+        # Keep the browser response generic, but record the full traceback in Render logs.
+        logging.exception("Unexpected recipe import failure (%s)", type(exc).__name__)
+        raise HTTPException(status_code=502, detail="The recipe page could not be imported. Check the API service logs for the underlying error.") from exc
