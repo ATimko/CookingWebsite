@@ -425,26 +425,58 @@ export default function RecipeLibrary({ recipes, onSave, onDelete, onImport, onV
 
 	const parseUrl = async (urlToParse = recipeUrl) => {
 		if (!permissionConfirmed) {
-			setMessage({ type: 'error', text: 'Confirm that you own or have permission to reuse this recipe before importing it.' });
+			setMessage({
+				type: 'error',
+				text: 'Confirm that you own or have permission to reuse this recipe before importing it.'
+			});
 			return;
 		}
+
 		setIsParsing(true);
 		setMessage(null);
+
+		const configuredParser = import.meta.env.VITE_RECIPE_IMPORT_API_URL?.trim();
+
 		try {
-			const configuredParser = import.meta.env.VITE_RECIPE_IMPORT_API_URL?.trim();
+			console.log('Recipe import started');
+			console.log('Configured API URL:', configuredParser);
+
 			const parserEndpoint = configuredParser
 				? new URL('/api/recipes/parse', configuredParser).toString()
 				: '/api/recipes/parse';
+
+			console.log('Recipe parser endpoint:', parserEndpoint);
+			console.log('Sending recipe request...');
+
 			const response = await fetch(parserEndpoint, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ url: urlToParse.trim(), permissionConfirmed }),
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					url: urlToParse.trim(),
+					permissionConfirmed
+				}),
 			});
+
+			console.log('API response status:', response.status);
+
 			if (!response.headers.get('content-type')?.includes('application/json')) {
-				throw new Error(configuredParser ? 'The Stealth-Requests API did not return JSON. Check the API URL and service logs.' : 'This deployed site has no recipe import API configured. Set the VITE_RECIPE_IMPORT_API_URL GitHub Actions variable to your hosted Stealth-Requests API URL.');
+				throw new Error(
+					configuredParser
+						? 'The Stealth-Requests API did not return JSON. Check the API URL and service logs.'
+						: 'This deployed site has no recipe import API configured. Set the VITE_RECIPE_IMPORT_API_URL GitHub Actions variable to your hosted Stealth-Requests API URL.'
+				);
 			}
+
 			const result = await response.json();
-			if (!response.ok) throw new Error(result.error || `Recipe import failed (${response.status}).`);
+
+			console.log('Recipe API response:', result);
+
+			if (!response.ok) {
+				throw new Error(result.error || `Recipe import failed (${response.status}).`);
+			}
+
 			setDraft({
 				...createEmptyDraft(),
 				...result.recipe,
@@ -453,16 +485,29 @@ export default function RecipeLibrary({ recipes, onSave, onDelete, onImport, onV
 				instructions: result.recipe.steps.map(createInstructionDraft),
 				sourceUrl: result.recipe.sourceUrl || urlToParse.trim(),
 			});
+
 			setEditingId('');
 			setHasAttemptedSubmit(false);
-			setMessage({ type: 'success', text: 'Recipe details found. Review and edit them before saving.' });
+
+			setMessage({
+				type: 'success',
+				text: 'Recipe details found. Review and edit them before saving.'
+			});
+
 		} catch (error) {
+			console.error('Recipe import error:', error);
+
 			setMessage({
 				type: 'error',
 				text: error instanceof TypeError
-					? (import.meta.env.VITE_RECIPE_IMPORT_API_URL ? 'The Stealth-Requests API could not be reached. Check that the service is running and allows this site in ALLOWED_ORIGINS.' : 'The local recipe parser is unavailable. Restart the Vite development server, or configure VITE_RECIPE_IMPORT_API_URL for the deployed site.')
+					? (
+						configuredParser
+							? 'The Stealth-Requests API could not be reached. Check that the service is running and allows this site in ALLOWED_ORIGINS.'
+							: 'The local recipe parser is unavailable. Restart the Vite development server, or configure VITE_RECIPE_IMPORT_API_URL for the deployed site.'
+					)
 					: error.message,
 			});
+
 		} finally {
 			setIsParsing(false);
 		}
