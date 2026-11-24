@@ -104,6 +104,101 @@ function normalizeRecipe(recipe) {
 	};
 }
 
+function getMinutesFromText(value) {
+	if (typeof value !== 'string') return null;
+	const text = value.toLowerCase();
+	const hours = text.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b/);
+	const minutes = text.match(/(\d+(?:\.\d+)?)\s*(?:minutes?|mins?|m)\b/);
+	const plainMinutes = text.match(/^\s*(\d+)\s*$/);
+	const total = (hours ? Number(hours[1]) * 60 : 0)
+		+ (minutes ? Number(minutes[1]) : plainMinutes ? Number(plainMinutes[1]) : 0);
+	return total > 0 && Number.isInteger(total) ? total : null;
+}
+
+export function parsePastedRecipeText(contents) {
+	if (typeof contents !== 'string' || !contents.trim()) {
+		throw new Error('Paste the recipe text you want to import.');
+	}
+
+	const sections = {
+		ingredients: /^(?:ingredients?(?:\s+(?:for|needed).*)?|what you(?:'|’)ll need)\s*:?\s*$/i,
+		steps: /^(?:instructions?|directions?|method|steps?|preparation)\s*:?\s*$/i,
+	};
+	const metadataLabels = {
+		title: /^(?:title|recipe name)\s*:\s*(.+)$/i,
+		author: /^(?:author|by)\s*:\s*(.+)$/i,
+		category: /^category\s*:\s*(.+)$/i,
+		description: /^description\s*:\s*(.+)$/i,
+		servings: /^(?:serves|servings|yield)\s*:\s*(.+)$/i,
+		totalTime: /^(?:total time|time)\s*:\s*(.+)$/i,
+		prepTime: /^prep time\s*:\s*(.+)$/i,
+		cookTime: /^cook time\s*:\s*(.+)$/i,
+	};
+	const ingredients = [];
+	const steps = [];
+	const metadata = {};
+	let section = '';
+	let title = '';
+
+	for (const sourceLine of contents.split(/\r?\n/)) {
+		const line = sourceLine.trim();
+		if (!line) continue;
+
+		if (sections.ingredients.test(line)) {
+			section = 'ingredients';
+			continue;
+		}
+		if (sections.steps.test(line)) {
+			section = 'steps';
+			continue;
+		}
+		if (section && /^(?:notes?|nutrition(?: facts)?|recipe notes)\s*:?\s*$/i.test(line)) {
+			section = '';
+			continue;
+		}
+
+		const metadataMatch = Object.entries(metadataLabels)
+			.map(([field, expression]) => [field, line.match(expression)])
+			.find(([, match]) => match);
+		if (metadataMatch) {
+			metadata[metadataMatch[0]] = metadataMatch[1][1].trim();
+			continue;
+		}
+
+		if (!section) {
+			if (!title && !/^(?:jump to recipe|print recipe)$/i.test(line)) title = line;
+			continue;
+		}
+
+		const recipeLine = line.replace(/^(?:(?:step\s*)?\d+[.)-]\s*|[-*•]\s*)/, '').trim();
+		if (!recipeLine) continue;
+		if (section === 'ingredients') ingredients.push(recipeLine);
+		else steps.push(recipeLine);
+	}
+
+	const time = getMinutesFromText(metadata.totalTime)
+		?? (() => {
+			const prepTime = getMinutesFromText(metadata.prepTime);
+			const cookTime = getMinutesFromText(metadata.cookTime);
+			return prepTime != null && cookTime != null ? prepTime + cookTime : prepTime ?? cookTime;
+		})();
+	const recipeTitle = metadata.title || title;
+	if (!recipeTitle || !ingredients.length || !steps.length) {
+		throw new Error('Could not find a recipe name, Ingredients section, and Instructions section in that text.');
+	}
+
+	return {
+		title: recipeTitle,
+		category: metadata.category || 'My recipes',
+		description: metadata.description || '',
+		author: metadata.author || 'You',
+		time: time == null ? '' : String(time),
+		servings: metadata.servings || '',
+		ingredients,
+		steps,
+	};
+}
+
 function parseTextRecipe(block) {
 	const fields = {};
 	const ingredients = [];

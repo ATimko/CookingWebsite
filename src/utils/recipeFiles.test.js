@@ -4,6 +4,7 @@ import {
 	exportRecipesJson,
 	exportRecipesText,
 	parseRecipeFile,
+	parsePastedRecipeText,
 } from './recipeFiles.js';
 
 const sample = {
@@ -50,6 +51,37 @@ test('rejects invalid URLs and recipes without ingredients or steps', () => {
 	assert.throws(
 		() => parseRecipeFile(JSON.stringify([{ ...sample, steps: [] }])),
 		/needs at least one instruction step/,
+	);
+});
+
+test('parses pasted recipe text into editable recipe fields', () => {
+	const recipe = parsePastedRecipeText(`Curried rice
+Prep time: 10 minutes
+Cook time: 20 minutes
+Serves: 4
+
+Ingredients:
+- 2 cups basmati rice
+- 1 tablespoon curry powder
+
+Instructions:
+1. Rinse the rice.
+2. Simmer with the curry powder.
+
+Notes:
+Serve warm.`);
+
+	assert.equal(recipe.title, 'Curried rice');
+	assert.equal(recipe.time, '30');
+	assert.equal(recipe.servings, '4');
+	assert.deepEqual(recipe.ingredients, ['2 cups basmati rice', '1 tablespoon curry powder']);
+	assert.deepEqual(recipe.steps, ['Rinse the rice.', 'Simmer with the curry powder.']);
+});
+
+test('rejects pasted text that does not contain a complete recipe', () => {
+	assert.throws(
+		() => parsePastedRecipeText('A recipe title\nIngredients:\n- flour'),
+		/Could not find a recipe name, Ingredients section, and Instructions section/,
 	);
 });
 

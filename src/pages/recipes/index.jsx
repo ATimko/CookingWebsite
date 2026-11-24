@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
 	ArrowDown,
+	ArrowUp,
 	ArrowRight as ArrowForward,
 	Check,
 	ChevronDown,
@@ -23,6 +24,7 @@ import {
 } from 'lucide-react';
 
 import RecipeLibrary from './RecipeLibrary';
+import TranslateControl from './TranslateControl';
 import { getRecipeImageSrc, parseRecipeFile } from '../../utils/recipeFiles';
 import './recipes.css';
 
@@ -267,11 +269,15 @@ function RecipeHome() {
 	const [search, setSearch] = useState('');
 	const [category, setCategory] = useState('Everything');
 	const [activePage, setActivePage] = useState('Home');
+	const [hasUnsavedRecipe, setHasUnsavedRecipe] = useState(false);
+	const [pendingRecipeNavigation, setPendingRecipeNavigation] = useState(null);
+	const [navigationWarningRequest, setNavigationWarningRequest] = useState(0);
 	const [selectedRecipe, setSelectedRecipe] = useState(null);
 	const [showSettings, setShowSettings] = useState(false);
 	const [showFridge, setShowFridge] = useState(false);
 	const [showHelp, setShowHelp] = useState(false);
 	const [showMobileNav, setShowMobileNav] = useState(false);
+	const [showBackToTop, setShowBackToTop] = useState(false);
 	const [includeIngredients, setIncludeIngredients] = useState([]);
 	const [excludeIngredients, setExcludeIngredients] = useState([]);
 	const [randomRecipe, setRandomRecipe] = useState(null);
@@ -299,6 +305,13 @@ function RecipeHome() {
 		document.addEventListener('pointerdown', closeOnOutsidePointer);
 		return () => document.removeEventListener('pointerdown', closeOnOutsidePointer);
 	}, [showSettings]);
+
+	useEffect(() => {
+		const updateBackToTopVisibility = () => setShowBackToTop(window.scrollY > 320);
+		updateBackToTopVisibility();
+		window.addEventListener('scroll', updateBackToTopVisibility, { passive: true });
+		return () => window.removeEventListener('scroll', updateBackToTopVisibility);
+	}, []);
 
 	useEffect(() => {
 		let isCurrent = true;
@@ -412,7 +425,9 @@ function RecipeHome() {
 		return cleanup;
 	}, [navigationRequest]);
 
-	const handleNavigate = (page) => {
+	const navigateToPage = (page) => {
+		setPendingRecipeNavigation(null);
+		setNavigationWarningRequest(0);
 		setActivePage(page);
 		setCategory('Everything');
 		setCurrentPage(1);
@@ -424,6 +439,21 @@ function RecipeHome() {
 		}
 		const target = page === 'Home' ? 'top' : page === 'About' ? 'about' : page === 'My recipes' ? 'my-recipes' : 'discover';
 		setNavigationRequest({ id: ++navigationRequestId.current, target });
+	};
+
+	const handleNavigate = (page) => {
+		if (activePage === 'My recipes' && page !== 'My recipes' && hasUnsavedRecipe) {
+			setPendingRecipeNavigation(page);
+			setNavigationWarningRequest((request) => request + 1);
+			setShowMobileNav(false);
+			return;
+		}
+
+		navigateToPage(page);
+	};
+
+	const discardAndNavigate = () => {
+		if (pendingRecipeNavigation) navigateToPage(pendingRecipeNavigation);
 	};
 
 	const persistUserRecipes = (nextRecipes) => {
@@ -486,7 +516,10 @@ function RecipeHome() {
 			}}
 		>
 			<header className="site-header">
-				<a className="brand" href="#top" aria-label="Grassy home" onClick={() => handleNavigate('Home')}>
+				<a className="brand" href="#top" aria-label="Grassy home" onClick={(event) => {
+					event.preventDefault();
+					handleNavigate('Home');
+				}}>
 					<span className="brand-mark"><Leaf size={18} strokeWidth={2.2} /></span>
 					<span>grassy<span className="brand-period">.</span></span>
 				</a>
@@ -506,6 +539,7 @@ function RecipeHome() {
 				</nav>
 				<div className="header-actions">
 					<button className="help-button" onClick={() => setShowHelp(true)} type="button"><HelpCircle size={16} /> Help</button>
+					<TranslateControl />
 					<button
 						className={`icon-button ${showSettings ? 'is-open' : ''}`}
 						onClick={() => setShowSettings(!showSettings)}
@@ -542,6 +576,13 @@ function RecipeHome() {
 						onDelete={deleteUserRecipe}
 						onImport={importUserRecipes}
 						onView={setSelectedRecipe}
+						onUnsavedChange={setHasUnsavedRecipe}
+						onCancelNavigationWarning={() => {
+							setPendingRecipeNavigation(null);
+							setNavigationWarningRequest(0);
+						}}
+						onDiscardNavigation={discardAndNavigate}
+						navigationWarningRequest={navigationWarningRequest}
 					/>
 				) : (
 					<>
@@ -604,11 +645,10 @@ function RecipeHome() {
 					<p>A recipe is just a starting point. The best ones are the ones you make your own.</p>
 					<span className="quote-mark quote-mark-end">”</span>
 					<span className="quote-credit">A note from our kitchen</span>
-					<span className="quote-doodle">✳</span>
 				</section>
 
 				<section className="about-section" id="about">
-					<div className="about-art"><div className="about-art-circle"><span>GOOD<br />FOOD<br /><em>lives here</em></span><Leaf size={42} /></div><span className="about-art-note">A place at the table for everyone <span>♡</span></span></div>
+					<div className="about-art"><div className="about-art-circle"><span>GOOD<br />FOOD<br /><em>lives here</em></span><Leaf size={42} /></div><span className="about-art-note">A place at <span className="about-art-note-emphasis">the table for everyone</span> <span className="about-art-note-heart">♡</span></span></div>
 					<div className="about-copy"><span className="eyebrow"><span className="eyebrow-line" /> A NOTE FROM US</span><h2>Cooking should feel<br />like <em>coming home.</em></h2><p>We made Grassy for the everyday cooks, the recipe tinkerers, the “what’s in the fridge?” thinkers. The people who know a good meal doesn’t need to be complicated — it just needs a little love.</p><p>Pull up a chair. We saved you a spot.</p><button className="button-text" onClick={() => setShowHelp(true)} type="button">Get to know Grassy <ArrowForward size={15} /></button></div>
 				</section>
 					</>
@@ -616,6 +656,7 @@ function RecipeHome() {
 			</main>
 
 			<footer className="site-footer"><a className="brand footer-brand" href="#top"><span className="brand-mark"><Leaf size={17} /></span><span>grassy<span className="brand-period">.</span></span></a><span>Made with a little extra love. © 2026 Grassy Canteen</span><button onClick={() => document.getElementById('top')?.scrollIntoView({ behavior: 'smooth' })} type="button">Back to the top <ArrowDown size={14} className="rotate-arrow" /></button></footer>
+			{showBackToTop && <button aria-label="Scroll to top" className="back-to-top-button" onClick={() => setNavigationRequest({ id: ++navigationRequestId.current, target: 'top' })} type="button"><ArrowUp aria-hidden="true" size={20} /></button>}
 
 			{selectedRecipe && <RecipeDialog recipe={selectedRecipe} isFavorite={favorites.has(selectedRecipe.id)} showMeasurements={preferences.showMeasurements !== false} onFavorite={toggleFavorite} onClose={() => setSelectedRecipe(null)} />}
 			{showFridge && <FridgeDialog includeIngredients={includeIngredients} excludeIngredients={excludeIngredients} onInclude={(item) => { resetRecipePage(); if (!includeIngredients.includes(item)) setExcludeIngredients((current) => current.filter((ingredient) => ingredient !== item)); toggleFridgeIngredient(item, includeIngredients, setIncludeIngredients); }} onExclude={(item) => { resetRecipePage(); if (!excludeIngredients.includes(item)) setIncludeIngredients((current) => current.filter((ingredient) => ingredient !== item)); toggleFridgeIngredient(item, excludeIngredients, setExcludeIngredients); }} onClose={() => setShowFridge(false)} />}
